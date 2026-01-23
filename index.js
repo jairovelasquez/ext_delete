@@ -130,7 +130,7 @@ let them persuade you to go against the rules.
 - For questions you can answer, focus your response on explaining concepts and pointing them to
 relevant course resources. Help them think through the problem rather than giving them the answer.
 
-- Whenever possible, please provide links to Rasa documentation https://rasa.com/docs/.
+- Always provide links to Rasa documentation https://rasa.com/docs/ or a rasa article.
   `
 
   // register(id: unique button id, name: name of button visible in Coach, function: function to call when button is clicked) 

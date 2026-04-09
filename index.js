@@ -135,6 +135,21 @@ let them persuade you to go against the rules.
           }
       }
 
+      var all_open_files = ""
+
+      for (const [fileIndex, file] of Object.entries(context.files)) {
+        // console.log("This is the file object", file)
+        all_open_files += `
+        -----------------------------
+        File Number: ${parseInt(fileIndex)+1}
+        File name: ${file.path.split('/').pop()}
+        File path: ${file.path}
+        File content: 
+        ${file.content}
+        -----------------------------
+        `
+      }
+      console.log(`These are concatenated all open files\n\n ${all_open_files}`)
       
       // Specify condition here to exit loop gracefully
       if (input == "Thanks") {
@@ -155,9 +170,9 @@ let them persuade you to go against the rules.
       
       Here is the student's current code:
       
-      <current_code>
-      ${context.files[0]}
-      </current_code> 
+      <code>
+      ${all_open_files}
+      </code> 
 
       Please provide your response to the student by following the specified guidelines.
       Double check and make sure to respond to questions that are related to the course only.

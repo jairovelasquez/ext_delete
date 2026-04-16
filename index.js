@@ -191,7 +191,7 @@ let them persuade you to go against the rules.
 
     }
     codioIDE.coachBot.write("Bitte zögern Sie nicht, weitere Fragen zu diesem Kurs zu stellen!")
-    codioIDE.coachBot.close()
+    codioIDE.coachBot.showMenu()
   }
 
 })(window.codioIDE, window) 

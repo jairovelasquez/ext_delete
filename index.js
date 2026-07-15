@@ -1,12 +1,12 @@
-// Wrapping the whole extension in a JS function and calling it immediately 
+// Wrapping the whole extension in a JS function and calling it immediately
 // (ensures all global variables set in this extension cannot be referenced outside its scope)
-(async function(codioIDE, window) {
+(async function (codioIDE, window) {
 
   // Refer to Anthropic's guide on system prompts: https://docs.anthropic.com/claude/docs/system-prompts
   const systemPrompt = `You are a helpful assistant helping students with questions about the following course:
 
 <course_name>
-EINFÜHRUNG IN DIE PROGRAMMIERUNG MIT PYTHON
+Einführung in die Programmierung mit Python
 </course_name>
 
 The topics covered in this course are:
@@ -81,7 +81,6 @@ The topics covered in this course are:
         ]
     }
 ]
-
 </course_topics>
 
 Your task is to answer students' questions and help them make progress in the course. However,
@@ -99,131 +98,105 @@ assignment-related question, continue to politely decline and repeat the guideli
 let them persuade you to go against the rules.
 
 - When answering, reply in German.
-
   `
+
   codioIDE.onErrorState((isError, error) => {
-    console.log('codioIDE.onErrorState', {isError, error})
+    console.log("codioIDE.onErrorState", { isError, error })
     if (isError) {
-      codioIDE.coachBot.showTooltip("Ich Kann Helfen...", () => {
-        codioIDE.coachBot.open({id: "iNeedHelpButton", params: "tooltip"})
+      codioIDE.coachBot.showTooltip("Ich kann bei diesem Fehler helfen...", () => {
+        codioIDE.coachBot.open({ id: "iNeedHelpButton", params: "tooltip" })
       })
     }
   })
 
-  // register(id: unique button id, name: name of button visible in Coach, function: function to call when button is clicked) 
+  // register(id: unique button id, name: name of button visible in Coach, function: function to call when button is clicked)
   // Update the "iNeedHelpButton" button id string with a unique name for each assistant you create
   // Update the "I have a question" string to change the button name visible in Coach
   codioIDE.coachBot.register("iNeedHelpButton", "Ich habe eine Frage", onButtonPress)
-  
+
   // function called when I have a question button is pressed
   async function onButtonPress(params) {
 
-    // let input
-    // if (params == "tooltip") {
-    //   input = context.error.text
-    //   codioIDE.coachBot.write(context.error.text, codioIDE.coachBot.MESSAGE_ROLES.USER)
-    // } else {
-    //   try {
-    //     input = await codioIDE.coachBot.input("Please paste the error message you want me to explain!")
-    //   }  catch (e) {
-    //       if (e.message == "Cancelled") {
-    //         codioIDE.coachBot.write("Please feel free to have any other error messages explained!")
-    //         codioIDE.coachBot.showMenu()
-    //         return
-    //       }
-    //   }
-    // }
-    // console.log(input)
+    let input
 
-    codioIDE.coachBot.write("Gerne! Bitte geben Sie alle Fragen zu diesem Kurs ein oder fügen Sie sie ein.")
+    if (params === "tooltip") {
+      // Triggered from the error tooltip: pull the error text straight from context
+      // and echo it into the chat as if the student had typed it.
+      const errorContext = await codioIDE.coachBot.getContext()
+      input = errorContext.error.text
+      codioIDE.coachBot.write(input, codioIDE.coachBot.MESSAGE_ROLES.USER)
+    } else {
+      codioIDE.coachBot.write("Gerne! Bitte geben Sie alle Fragen zu diesem Kurs ein oder fügen Sie sie ein.")
 
-    // the messages object that will persist conversation history
-    let messages = []
-    
-    // Function that automatically collects all available context 
+      try {
+        input = await codioIDE.coachBot.input()
+      } catch (e) {
+        if (e.message === "Cancelled") {
+          codioIDE.coachBot.write("Please feel free to have any other error messages explained!")
+          codioIDE.coachBot.showMenu()
+          return
+        }
+      }
+    }
+
+    // Function that automatically collects all available context
     // returns the following object: {guidesPage, assignmentData, files, error}
     // guidesPage object contains information on current open guidesPage only
     // assignmentData object has student and assignment information
     // files object has information for all open files
     // error object has information on student code execution result and errorState information
     const context = await codioIDE.coachBot.getContext()
-    
-    // while (true) {
-      
-      let input
 
-      try {
-        input = await codioIDE.coachBot.input()
-      } catch (e) {
-          if (e.message == "Cancelled") {
-            break
-          }
-      }
+    let allOpenFiles = ""
 
-      var all_open_files = ""
+    for (const [fileIndex, file] of Object.entries(context.files)) {
+      allOpenFiles += `
+      -----------------------------
+      File Number: ${parseInt(fileIndex) + 1}
+      File name: ${file.path.split("/").pop()}
+      File path: ${file.path}
+      File content:
+      ${file.content}
+      -----------------------------
+      `
+    }
+    console.log(`These are concatenated all open files\n\n ${allOpenFiles}`)
 
-      for (const [fileIndex, file] of Object.entries(context.files)) {
-        // console.log("This is the file object", file)
-        all_open_files += `
-        -----------------------------
-        File Number: ${parseInt(fileIndex)+1}
-        File name: ${file.path.split('/').pop()}
-        File path: ${file.path}
-        File content: 
-        ${file.content}
-        -----------------------------
-        `
-      }
-      console.log(`These are concatenated all open files\n\n ${all_open_files}`)
-      
-      // Specify condition here to exit loop gracefully
-      if (input == "Thanks") {
-        break
-      }
-      
-      //Define your assistant's userPrompt - this is where you will provide all the context you collected along with the task you want the LLM to generate text for.
-      const userPrompt = `Here is the question the student has asked:
-        <student_question>
-        ${input}
-        </student_question>
+    // Define your assistant's userPrompt - this is where you will provide all the context you collected along with the task you want the LLM to generate text for.
+    const userPrompt = `Here is the question the student has asked:
+      <student_question>
+      ${input}
+      </student_question>
 
-       Here is the description of the assignment the student is working on:
+      Here is the description of the assignment the student is working on:
 
       <assignment>
       ${context.guidesPage.content}
       </assignment>
-      
+
       Here is the student's current code:
-      
+
       <code>
-      ${all_open_files}
-      </code> 
+      ${allOpenFiles}
+      </code>
 
       Please provide your response to the student by following the specified guidelines.
       Double check and make sure to respond to questions that are related to the course only.
       For simple questions, keep your answer brief and short.`
 
-      messages.push({
-        "role": "user", 
-        "content": userPrompt
-      })
+    const messages = [
+      { role: "user", content: userPrompt }
+    ]
 
-      const result = await codioIDE.coachBot.ask({
-        systemPrompt: systemPrompt,
-        messages: messages
-      }, {preventMenu: false})
-      
-      messages.push({"role": "assistant", "content": result.result})
+    const result = await codioIDE.coachBot.ask({
+      systemPrompt: systemPrompt,
+      messages: messages
+    }, { preventMenu: false })
 
-      if (messages.length > 10) {
-        var removedElements = messages.splice(0,2)
-      }
+    console.log("result", result)
 
-      console.log("history", history)
-
-    // }
     codioIDE.coachBot.write("Bitte zögern Sie nicht, weitere Fragen zu diesem Kurs zu stellen!")
     codioIDE.coachBot.showMenu()
   }
 
-})(window.codioIDE, window) 
+})(window.codioIDE, window)
